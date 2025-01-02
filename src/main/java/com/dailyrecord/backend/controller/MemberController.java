@@ -50,4 +50,34 @@ public class MemberController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse("Invalid credentials"));
         }
     }
+
+    // 회원 정보 수정
+    @PutMapping("/{id}")
+    public ResponseEntity<Member> updateMember(@PathVariable Long id, @RequestBody Member updatedMember) {
+        Member member = memberService.updateMember(id, updatedMember);
+        if (member == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(member);
+    }
+
+    // 회원 탈퇴
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMember(@PathVariable Long id) {
+        boolean isDeactivated = memberService.deactivateMember(id);
+        if (isDeactivated) {
+            return ResponseEntity.noContent().build();  // 비활성화 성공
+        }
+        return ResponseEntity.notFound().build();  // 회원을 찾을 수 없음
+    }
+
+    // 회원 복구 (활성화)
+    @PutMapping("/{id}/reactivate")
+    public ResponseEntity<Void> reactivateMember(@PathVariable Long id) {
+        boolean isReactivated = memberService.reactivateMember(id);
+        if (isReactivated) {
+            return ResponseEntity.noContent().build();  // 활성화 성공
+        }
+        return ResponseEntity.notFound().build();  // 회원을 찾을 수 없음
+    }
 }

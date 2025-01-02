@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Optional;
 
@@ -21,8 +22,12 @@ public class MemberService {
 
     private static final long TOKEN_EXPIRATION_MS = 86400000L; // 24시간
 
-    private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
+    @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;  // BCryptPasswordEncoder 사용
+
 
     @Value("${jwt.secret.key}")
     private String secretKey; // application.properties에서 가져옴
@@ -75,5 +80,43 @@ public class MemberService {
             logger.warn("User not found with email: {}", email);
             throw new IllegalArgumentException("User not found with email: " + email);
         }
+    }
+
+    // 회원 정보 수정
+    public Member updateMember(Long id, Member updatedMember) {
+        return memberRepository.findById(id).map(member -> {
+            // 비밀번호 암호화
+            if (updatedMember.getPassword() != null && !updatedMember.getPassword().isEmpty()) {
+                updatedMember.setPassword(passwordEncoder.encode(updatedMember.getPassword()));
+            }
+
+            // 기존 정보 업데이트
+            member.setUsername(updatedMember.getUsername());
+            member.setEmail(updatedMember.getEmail());
+            member.setPassword(updatedMember.getPassword());
+            member.setUpdatedAt(LocalDateTime.now());  // 수정일시 업데이트
+
+            return memberRepository.save(member);
+        }).orElse(null);
+    }
+
+    // 회원 탈퇴 (isActive를 false로 변경)
+    public boolean deactivateMember(Long id) {
+        return memberRepository.findById(id).map(member -> {
+            member.setIsActive(false);  // 계정 비활성화
+            member.setUpdatedAt(LocalDateTime.now());  // 수정일시 업데이트
+            memberRepository.save(member);
+            return true;
+        }).orElse(false);
+    }
+
+    // 회원 복구 (isActive를 true로 변경)
+    public boolean reactivateMember(Long id) {
+        return memberRepository.findById(id).map(member -> {
+            member.setIsActive(true);  // 계정 활성화
+            member.setUpdatedAt(LocalDateTime.now());  // 수정일시 업데이트
+            memberRepository.save(member);
+            return true;
+        }).orElse(false);
     }
 }
