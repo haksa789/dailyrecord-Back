@@ -2,6 +2,7 @@ package com.dailyrecord.backend.service;
 
 import com.dailyrecord.backend.model.Member;
 import com.dailyrecord.backend.repository.MemberRepository;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.slf4j.Logger;
@@ -19,25 +20,18 @@ import java.util.Optional;
 public class MemberService {
 
     private static final Logger logger = LoggerFactory.getLogger(MemberService.class);
-
     private static final long TOKEN_EXPIRATION_MS = 86400000L; // 24시간
 
     @Autowired
     private MemberRepository memberRepository;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;  // BCryptPasswordEncoder 사용
-
+    private PasswordEncoder passwordEncoder;
 
     @Value("${jwt.secret.key}")
-    private String secretKey; // application.properties에서 가져옴
+    private String secretKey;
 
-    @Autowired
-    public MemberService(MemberRepository memberRepository, PasswordEncoder passwordEncoder) {
-        this.memberRepository = memberRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
+    // JWT 토큰 생성
     public String generateToken(Member member) {
         logger.info("Generating JWT token for user: {}", member.getEmail());
         return Jwts.builder()
@@ -49,13 +43,36 @@ public class MemberService {
                 .compact();
     }
 
-    public Member registerMember(Member member) {
-        logger.info("Registering new member with email: {}", member.getEmail());
-        String encodedPassword = passwordEncoder.encode(member.getPassword());
-        member.setPassword(encodedPassword);
-        return memberRepository.save(member);
+    // JWT 토큰의 Bearer 접두어 제거
+    private String extractPureToken(String token) {
+        if (token == null || !token.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("JWT token must start with 'Bearer '");
+        }
+        return token.substring(7); // "Bearer " 이후의 토큰 부분만 추출
     }
 
+    // JWT 토큰 검증
+    private boolean validateToken(String token) {
+        try {
+            String pureToken = extractPureToken(token);
+            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(pureToken);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            logger.error("JWT validation error: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    // JWT 토큰에서 이메일 추출
+    public String getEmailFromToken(String token) {
+        String pureToken = extractPureToken(token);
+        return Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(pureToken)
+                .getBody()
+                .getSubject();
+    }
     public Optional<Member> findMemberByUsername(String username) {
         return memberRepository.findByUsername(username);
     }
@@ -63,7 +80,15 @@ public class MemberService {
     public Optional<Member> findMemberByEmail(String email) {
         return memberRepository.findByEmail(email);
     }
+    // 회원 등록
+    public Member registerMember(Member member) {
+        logger.info("Registering new member with email: {}", member.getEmail());
+        String encodedPassword = passwordEncoder.encode(member.getPassword());
+        member.setPassword(encodedPassword);
+        return memberRepository.save(member);
+    }
 
+    // 로그인
     public String login(String email, String password) {
         logger.info("Attempting login for user: {}", email);
         Optional<Member> optionalMember = memberRepository.findByEmail(email);
@@ -83,38 +108,46 @@ public class MemberService {
     }
 
     // 회원 정보 수정
-    public Member updateMember(Long id, Member updatedMember) {
+    public Member updateMember(Long id, Member updatedMember, String token) {
+        if (!validateToken(token)) {
+            throw new IllegalArgumentException("Invalid JWT token");
+        }
+
+        String email = getEmailFromToken(token);
+
         return memberRepository.findById(id).map(member -> {
-            // 비밀번호 암호화
-            if (updatedMember.getPassword() != null && !updatedMember.getPassword().isEmpty()) {
-                updatedMember.setPassword(passwordEncoder.encode(updatedMember.getPassword()));
+            if (!member.getEmail().equals(email)) {
+                throw new SecurityException("Unauthorized to update this member");
             }
-
-            // 기존 정보 업데이트
-            member.setUsername(updatedMember.getUsername());
-            member.setEmail(updatedMember.getEmail());
-            member.setPassword(updatedMember.getPassword());
-            member.setUpdatedAt(LocalDateTime.now());  // 수정일시 업데이트
-
+            if (updatedMember.getUsername() != null && !updatedMember.getUsername().isEmpty()) {
+                member.setUsername(updatedMember.getUsername());
+            }
+            if (updatedMember.getEmail() != null && !updatedMember.getEmail().isEmpty()) {
+                member.setEmail(updatedMember.getEmail());
+            }
+            if (updatedMember.getPassword() != null && !updatedMember.getPassword().isEmpty()) {
+                member.setPassword(passwordEncoder.encode(updatedMember.getPassword()));
+            }
+            member.setUpdatedAt(LocalDateTime.now());
             return memberRepository.save(member);
-        }).orElse(null);
+        }).orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
     }
 
-    // 회원 탈퇴 (isActive를 false로 변경)
+    // 회원 탈퇴
     public boolean deactivateMember(Long id) {
         return memberRepository.findById(id).map(member -> {
-            member.setIsActive(false);  // 계정 비활성화
-            member.setUpdatedAt(LocalDateTime.now());  // 수정일시 업데이트
+            member.setIsActive(false);
+            member.setUpdatedAt(LocalDateTime.now());
             memberRepository.save(member);
             return true;
         }).orElse(false);
     }
 
-    // 회원 복구 (isActive를 true로 변경)
+    // 회원 복구
     public boolean reactivateMember(Long id) {
         return memberRepository.findById(id).map(member -> {
-            member.setIsActive(true);  // 계정 활성화
-            member.setUpdatedAt(LocalDateTime.now());  // 수정일시 업데이트
+            member.setIsActive(true);
+            member.setUpdatedAt(LocalDateTime.now());
             memberRepository.save(member);
             return true;
         }).orElse(false);

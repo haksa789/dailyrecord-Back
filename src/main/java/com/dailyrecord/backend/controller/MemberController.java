@@ -51,14 +51,21 @@ public class MemberController {
         }
     }
 
-    // 회원 정보 수정
+    // 회원 정보 수정 (JWT 인증 추가)
     @PutMapping("/{id}")
-    public ResponseEntity<Member> updateMember(@PathVariable Long id, @RequestBody Member updatedMember) {
-        Member member = memberService.updateMember(id, updatedMember);
-        if (member == null) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<Member> updateMember(
+            @PathVariable Long id,
+            @RequestBody Member updatedMember,
+            @RequestHeader("Authorization") String token) {
+        System.out.println("Received Authorization Header: " + token);
+        try {
+            Member member = memberService.updateMember(id, updatedMember, token);
+            return ResponseEntity.ok(member);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
-        return ResponseEntity.ok(member);
     }
 
     // 회원 탈퇴
