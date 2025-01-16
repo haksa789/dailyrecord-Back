@@ -45,6 +45,9 @@ public class Photos {
     @JoinColumn(name = "post_id") // 외래 키
     private Posts post;
 
+    @OneToOne(mappedBy = "photo", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AiGenerateData aiGenerateData;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Table(name = "ai_generate_data")
 @Getter
 @Setter
-public class AIGenerateData {
+public class AiGenerateData {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
