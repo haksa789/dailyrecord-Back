@@ -2,7 +2,7 @@ package com.dailyrecord.backend.controller;
 
 import com.dailyrecord.backend.dto.LoginRequest;
 import com.dailyrecord.backend.dto.LoginResponse;
-import com.dailyrecord.backend.model.Member;
+import com.dailyrecord.backend.model.Members;
 import com.dailyrecord.backend.service.MemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,20 +21,20 @@ public class MemberController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Member> registerMember(@RequestBody Member member) {
-        Member savedMember = memberService.registerMember(member);
-        return ResponseEntity.ok(savedMember);
+    public ResponseEntity<Members> registerMember(@RequestBody Members members) {
+        Members savedMembers = memberService.registerMember(members);
+        return ResponseEntity.ok(savedMembers);
     }
 
     @GetMapping("/username/{username}")
-    public ResponseEntity<Member> getMemberByUsername(@PathVariable String username) {
+    public ResponseEntity<Members> getMemberByUsername(@PathVariable String username) {
         return memberService.findMemberByUsername(username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/email/{email}")
-    public ResponseEntity<Member> getMemberByEmail(@PathVariable String email) {
+    public ResponseEntity<Members> getMemberByEmail(@PathVariable String email) {
         return memberService.findMemberByEmail(email)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -53,14 +53,14 @@ public class MemberController {
 
     // 회원 정보 수정 (JWT 인증 추가)
     @PutMapping("/{id}")
-    public ResponseEntity<Member> updateMember(
+    public ResponseEntity<Members> updateMember(
             @PathVariable Long id,
-            @RequestBody Member updatedMember,
+            @RequestBody Members updatedMembers,
             @RequestHeader("Authorization") String token) {
         System.out.println("Received Authorization Header: " + token);
         try {
-            Member member = memberService.updateMember(id, updatedMember, token);
-            return ResponseEntity.ok(member);
+            Members members = memberService.updateMember(id, updatedMembers, token);
+            return ResponseEntity.ok(members);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         } catch (SecurityException e) {

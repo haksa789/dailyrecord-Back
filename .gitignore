@@ -35,3 +35,4 @@ build/
 ### 보안 ###
 application.properties
 .env
+/uploads

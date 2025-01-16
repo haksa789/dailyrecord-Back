@@ -1,6 +1,6 @@
 package com.dailyrecord.backend.service;
 
-import com.dailyrecord.backend.model.Member;
+import com.dailyrecord.backend.model.Members;
 import com.dailyrecord.backend.repository.MemberRepository;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -32,11 +32,11 @@ public class MemberService {
     private String secretKey;
 
     // JWT 토큰 생성
-    public String generateToken(Member member) {
-        logger.info("Generating JWT token for user: {}", member.getEmail());
+    public String generateToken(Members members) {
+        logger.info("Generating JWT token for user: {}", members.getEmail());
         return Jwts.builder()
-                .setSubject(member.getEmail())
-                .claim("username", member.getUsername())
+                .setSubject(members.getEmail())
+                .claim("username", members.getUsername())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXPIRATION_MS))
                 .signWith(SignatureAlgorithm.HS512, secretKey)
@@ -73,30 +73,30 @@ public class MemberService {
                 .getBody()
                 .getSubject();
     }
-    public Optional<Member> findMemberByUsername(String username) {
+    public Optional<Members> findMemberByUsername(String username) {
         return memberRepository.findByUsername(username);
     }
 
-    public Optional<Member> findMemberByEmail(String email) {
+    public Optional<Members> findMemberByEmail(String email) {
         return memberRepository.findByEmail(email);
     }
     // 회원 등록
-    public Member registerMember(Member member) {
-        logger.info("Registering new member with email: {}", member.getEmail());
-        String encodedPassword = passwordEncoder.encode(member.getPassword());
-        member.setPassword(encodedPassword);
-        return memberRepository.save(member);
+    public Members registerMember(Members members) {
+        logger.info("Registering new member with email: {}", members.getEmail());
+        String encodedPassword = passwordEncoder.encode(members.getPassword());
+        members.setPassword(encodedPassword);
+        return memberRepository.save(members);
     }
 
     // 로그인
     public String login(String email, String password) {
         logger.info("Attempting login for user: {}", email);
-        Optional<Member> optionalMember = memberRepository.findByEmail(email);
+        Optional<Members> optionalMember = memberRepository.findByEmail(email);
         if (optionalMember.isPresent()) {
-            Member member = optionalMember.get();
-            if (passwordEncoder.matches(password, member.getPassword())) {
+            Members members = optionalMember.get();
+            if (passwordEncoder.matches(password, members.getPassword())) {
                 logger.info("Login successful for user: {}", email);
-                return generateToken(member);
+                return generateToken(members);
             } else {
                 logger.warn("Invalid password for user: {}", email);
                 throw new IllegalArgumentException("Invalid password");
@@ -108,7 +108,7 @@ public class MemberService {
     }
 
     // 회원 정보 수정
-    public Member updateMember(Long id, Member updatedMember, String token) {
+    public Members updateMember(Long id, Members updatedMembers, String token) {
         if (!validateToken(token)) {
             throw new IllegalArgumentException("Invalid JWT token");
         }
@@ -119,14 +119,14 @@ public class MemberService {
             if (!member.getEmail().equals(email)) {
                 throw new SecurityException("Unauthorized to update this member");
             }
-            if (updatedMember.getUsername() != null && !updatedMember.getUsername().isEmpty()) {
-                member.setUsername(updatedMember.getUsername());
+            if (updatedMembers.getUsername() != null && !updatedMembers.getUsername().isEmpty()) {
+                member.setUsername(updatedMembers.getUsername());
             }
-            if (updatedMember.getEmail() != null && !updatedMember.getEmail().isEmpty()) {
-                member.setEmail(updatedMember.getEmail());
+            if (updatedMembers.getEmail() != null && !updatedMembers.getEmail().isEmpty()) {
+                member.setEmail(updatedMembers.getEmail());
             }
-            if (updatedMember.getPassword() != null && !updatedMember.getPassword().isEmpty()) {
-                member.setPassword(passwordEncoder.encode(updatedMember.getPassword()));
+            if (updatedMembers.getPassword() != null && !updatedMembers.getPassword().isEmpty()) {
+                member.setPassword(passwordEncoder.encode(updatedMembers.getPassword()));
             }
             member.setUpdatedAt(LocalDateTime.now());
             return memberRepository.save(member);

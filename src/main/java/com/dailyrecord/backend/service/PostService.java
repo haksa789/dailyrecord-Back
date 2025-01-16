@@ -1,6 +1,6 @@
 package com.dailyrecord.backend.service;
 
-import com.dailyrecord.backend.model.Post;
+import com.dailyrecord.backend.model.Posts;
 import com.dailyrecord.backend.repository.PostRepository;
 import org.springframework.stereotype.Service;
 
@@ -16,15 +16,15 @@ public class PostService {
         this.postRepository = postRepository;
     }
 
-    public Post createPost(Post post) {
+    public Posts createPost(Posts post) {
         return postRepository.save(post);
     }
 
-    public Optional<Post> getPostById(Long id) {
+    public Optional<Posts> getPostById(Long id) {
         return postRepository.findById(id);
     }
 
-    public List<Post> getPostsByMemberId(Long memberId) {
+    public List<Posts> getPostsByMemberId(Long memberId) {
         return postRepository.findByMemberId(memberId);
     }
 
@@ -32,12 +32,12 @@ public class PostService {
         postRepository.deleteById(id);
     }
 
-    public List<Post> getPublicPosts() {
+    public List<Posts> getPublicPosts() {
         return postRepository.findByStatus("published");
     }
 
-    public Post updatePostVisibility(Long id, String status) {
-        Post post = postRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+    public Posts updatePostVisibility(Long id, String status) {
+        Posts post = postRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
         post.setStatus(status);
         return postRepository.save(post);
     }
