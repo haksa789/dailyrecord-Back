@@ -1,14 +1,18 @@
 package com.dailyrecord.backend.controller;
 
 import com.dailyrecord.backend.dto.LoginRequest;
-import com.dailyrecord.backend.dto.LoginResponse;
 import com.dailyrecord.backend.model.Members;
 import com.dailyrecord.backend.service.MemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/members")
@@ -33,6 +37,28 @@ public class MemberController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        }
+
+        // 사용자의 이메일을 통해 Member 정보를 가져옵니다.
+        Members member = memberService.findByEmail(userDetails.getUsername());
+
+        if (member == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+
+        // 필요한 사용자 정보만 반환합니다.
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", member.getId());
+        response.put("username", member.getUsername());
+        response.put("email", member.getEmail());
+        return ResponseEntity.ok(response);
+    }
+
 
     @GetMapping("/email/{email}")
     public ResponseEntity<Members> getMemberByEmail(@PathVariable String email) {

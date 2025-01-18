@@ -106,7 +106,10 @@ public class MemberService {
             throw new IllegalArgumentException("User not found with email: " + email);
         }
     }
-
+    // 이메일로 사용자 검색
+    public Members findByEmail(String email) {
+        return memberRepository.findByEmail(email).orElse(null);
+    }
     // 회원 정보 수정
     public Members updateMember(Long id, Members updatedMembers, String token) {
         if (!validateToken(token)) {
