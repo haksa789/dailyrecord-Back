@@ -14,10 +14,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtCookieFilter jwtCookieFilter; // 새로 추가된 필터
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    public SecurityConfig(JwtCookieFilter jwtCookieFilter) {
+        this.jwtCookieFilter = jwtCookieFilter;
     }
 
     @Bean
@@ -36,7 +36,7 @@ public class SecurityConfig {
                         ).permitAll() // 인증 없이 접근 가능
                         .anyRequest().authenticated() // 나머지 요청은 인증 필요
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // JWT 필터 추가
+                .addFilterBefore(jwtCookieFilter, UsernamePasswordAuthenticationFilter.class); // JWT 쿠키 필터 추가
 
         return http.build();
     }

@@ -30,17 +30,20 @@ public class JwtTokenProvider {
     // 토큰 생성
     public String generateToken(String username) {
         return Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXPIRATION_MS))
-                .signWith(SignatureAlgorithm.HS512, secretKey)
+                .setSubject(username) // 사용자 이름 설정
+                .setIssuedAt(new Date()) // 발행 시간
+                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXPIRATION_MS)) // 만료 시간
+                .signWith(SignatureAlgorithm.HS512, secretKey) // 서명 알고리즘과 비밀키 설정
                 .compact();
     }
 
     // 토큰 유효성 검증
-    boolean validateToken(String token) {
+    public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
+            Jwts.parserBuilder()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token); // 토큰 파싱 및 서명 검증
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             System.out.println("JWT validation error: " + e.getMessage());
@@ -50,8 +53,9 @@ public class JwtTokenProvider {
 
     // 토큰에서 사용자 이름 추출
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKey(secretKey)
+                .build()
                 .parseClaimsJws(token)
                 .getBody();
         return claims.getSubject();
@@ -59,8 +63,8 @@ public class JwtTokenProvider {
 
     // 토큰에서 인증 정보 추출
     public Authentication getAuthentication(String token) {
-        String username = getUsernameFromToken(token);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        String username = getUsernameFromToken(token); // 토큰에서 사용자 이름 추출
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username); // 사용자 정보 로드
         return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 }

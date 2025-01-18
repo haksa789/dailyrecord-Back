@@ -6,6 +6,7 @@ import com.dailyrecord.backend.model.Members;
 import com.dailyrecord.backend.service.MemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,15 +42,28 @@ public class MemberController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
         String token = memberService.login(loginRequest.getEmail(), loginRequest.getPassword());
 
         if (token != null) {
-            return ResponseEntity.ok(new LoginResponse(token)); // 성공 시 토큰 반환
+            // HttpOnly 쿠키 생성
+            ResponseCookie cookie = ResponseCookie.from("authToken", token)
+                    .httpOnly(true) // JavaScript에서 접근 불가능
+                    .secure(true) // HTTPS에서만 전송 (개발 환경에서는 false로 설정 가능)
+                    .path("/") // 쿠키 유효 경로
+                    .maxAge(7 * 24 * 60 * 60) // 쿠키 만료 시간: 7일
+                    .sameSite("Strict") // Cross-Site 요청 제한
+                    .build();
+
+            // 쿠키를 응답 헤더에 추가
+            return ResponseEntity.ok()
+                    .header("Set-Cookie", cookie.toString())
+                    .body("Login successful");
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse("Invalid credentials"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
     }
+
 
     // 회원 정보 수정 (JWT 인증 추가)
     @PutMapping("/{id}")
