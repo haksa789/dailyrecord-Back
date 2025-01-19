@@ -1,6 +1,8 @@
 package com.dailyrecord.backend.service;
 
+import com.dailyrecord.backend.model.AiGenerateData;
 import com.dailyrecord.backend.model.Posts;
+import com.dailyrecord.backend.repository.AiGenerateDataRepository;
 import com.dailyrecord.backend.repository.PostRepository;
 import org.springframework.stereotype.Service;
 
@@ -11,10 +13,13 @@ import java.util.Optional;
 public class PostService {
 
     private final PostRepository postRepository;
+    private final AiGenerateDataRepository aiGenerateDataRepository;
 
-    public PostService(PostRepository postRepository) {
+    public PostService(PostRepository postRepository, AiGenerateDataRepository aiGenerateDataRepository) {
         this.postRepository = postRepository;
+        this.aiGenerateDataRepository = aiGenerateDataRepository;
     }
+
 
     public Posts createPost(Posts post) {
         return postRepository.save(post);
@@ -36,9 +41,16 @@ public class PostService {
         return postRepository.findByStatus("published");
     }
 
-    public Posts updatePostVisibility(Long id, String status) {
-        Posts post = postRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
-        post.setStatus(status);
-        return postRepository.save(post);
+    public boolean updatePostStatus(Long postId, String status) {
+        Optional<Posts> postOptional = postRepository.findById(postId);
+
+        if (postOptional.isPresent()) {
+            Posts post = postOptional.get();
+            post.setStatus(status); // 상태 업데이트
+            postRepository.save(post); // 저장
+            return true; // 업데이트 성공
+        }
+
+        return false; // 게시글을 찾지 못한 경우
     }
 }

@@ -1,6 +1,9 @@
 package com.dailyrecord.backend.service;
 
+import com.dailyrecord.backend.model.AiGenerateData;
 import com.dailyrecord.backend.model.Photos;
+import com.dailyrecord.backend.repository.AiGenerateDataRepository;
+import com.dailyrecord.backend.repository.PhotosRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -10,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class OpenAiService {
@@ -21,10 +25,14 @@ public class OpenAiService {
     private String endpoint;
 
     private final RestTemplate restTemplate;
+    private final PhotosRepository photosRepository;
+    private final AiGenerateDataRepository aiGenerateDataRepository;
 
     @Autowired
-    public OpenAiService(RestTemplate restTemplate) {
+    public OpenAiService(RestTemplate restTemplate,PhotosRepository photosRepository,AiGenerateDataRepository aiGenerateDataRepository) {
         this.restTemplate = restTemplate;
+        this.photosRepository = photosRepository;
+        this.aiGenerateDataRepository = aiGenerateDataRepository;
     }
 
     public String analyzePhoto(Photos photo,String atmosphereofwriting, String place, String age, String companions, String mbti, String situation) {
@@ -89,6 +97,23 @@ public class OpenAiService {
         }
 
         throw new RuntimeException("OpenAI API 응답 형식이 올바르지 않습니다.");
+    }
+    public boolean updateAIStory(Long photoId, String story) {
+        Optional<Photos> photoOptional = photosRepository.findById(photoId);
+
+        if (photoOptional.isPresent()) {
+            Photos photo = photoOptional.get();
+            Optional<AiGenerateData> aiDataOptional = aiGenerateDataRepository.findByPhoto(photo);
+
+            if (aiDataOptional.isPresent()) {
+                AiGenerateData aiData = aiDataOptional.get();
+                aiData.setStory(story); // 스토리 업데이트
+                aiGenerateDataRepository.save(aiData);
+                return true;
+            }
+        }
+
+        return false; // 데이터가 없는 경우
     }
 }
 

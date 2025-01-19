@@ -23,6 +23,8 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -59,14 +61,12 @@ public class PhotoController {
     public ResponseEntity<FileUploadResponse> uploadPhoto(
             @RequestParam("file") MultipartFile file,
             @RequestParam("memberId") Long memberId,
-            @RequestParam("postId") Long postId // postId 요청 파라미터 추가
+            @RequestParam("postId") Long postId
     ) {
         try {
-            // 멤버 조회
+            // 멤버 및 게시글 조회
             Members member = membersRepository.findById(memberId)
                     .orElseThrow(() -> new RuntimeException("Member not found with ID: " + memberId));
-
-            // 게시글 조회
             Posts post = postsRepository.findById(postId)
                     .orElseThrow(() -> new RuntimeException("Post not found with ID: " + postId));
 
@@ -75,65 +75,47 @@ public class PhotoController {
             File destinationFile = new File(uploadDir, fileName);
             file.transferTo(destinationFile);
 
-            // EXIF 데이터 추출
+            // EXIF 데이터 추출 및 설정
             Map<String, String> exifData = exifService.extractExifData(destinationFile);
-
-            // Photos 엔티티 생성 및 값 설정
             Photos photo = new Photos();
             photo.setFileName(fileName);
             photo.setFileSize(file.getSize());
 
-            // EXIF 데이터 설정
-            String latitudeStr = exifData.get("GPS Latitude");
-            String longitudeStr = exifData.get("GPS Longitude");
-            String takenAtStr = exifData.get("TakenAt");
-
-            // latitude, longitude가 null이면 0으로 설정하지 않고 null로 유지
-            if (latitudeStr != null) {
-                photo.setLatitude(Double.valueOf(latitudeStr));
+            if (exifData.get("GPS Latitude") != null) {
+                photo.setLatitude(Double.valueOf(exifData.get("GPS Latitude")));
             }
-
-            if (longitudeStr != null) {
-                photo.setLongitude(Double.valueOf(longitudeStr));
+            if (exifData.get("GPS Longitude") != null) {
+                photo.setLongitude(Double.valueOf(exifData.get("GPS Longitude")));
             }
-
-            // taken_at 설정 (형식이 잘못된 경우 null로 설정)
-            if (takenAtStr != null) {
+            if (exifData.get("TakenAt") != null) {
                 try {
-                    photo.setTakenAt(LocalDateTime.parse(takenAtStr));
+                    photo.setTakenAt(LocalDateTime.parse(exifData.get("TakenAt")));
                 } catch (DateTimeParseException e) {
                     photo.setTakenAt(null);
                 }
             }
 
-            // 관계 설정
-            photo.setMember(member); // member 설정
-            photo.setPost(post); // post 설정
+            // 관계 설정 및 DB 저장
+            photo.setMember(member);
+            photo.setPost(post);
+            Photos savedPhoto = photosRepository.save(photo); // 저장된 Photo 엔티티
 
-            // DB에 저장
-            photosRepository.save(photo);
-
-            // JSON 응답 반환
+            // 응답에 photoId 포함
             FileUploadResponse response = new FileUploadResponse(
                     "파일 업로드 성공 및 DB 저장 완료",
-                    fileName
+                    fileName,
+                    savedPhoto.getId() // 저장된 Photo의 ID 반환
             );
             return ResponseEntity.ok(response);
 
         } catch (IOException e) {
             e.printStackTrace();
-            FileUploadResponse errorResponse = new FileUploadResponse(
-                    "파일 업로드 실패",
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new FileUploadResponse("파일 업로드 실패", null, null));
         } catch (RuntimeException e) {
             e.printStackTrace();
-            FileUploadResponse errorResponse = new FileUploadResponse(
-                    "요청 처리 실패: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new FileUploadResponse("요청 처리 실패: " + e.getMessage(), null, null));
         }
     }
     // AI 캡션 및 스토리 생성 API
@@ -190,6 +172,19 @@ public class PhotoController {
             logger.error("사진 분석 중 오류 발생", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "사진 분석 중 오류 발생", "details", e.getMessage()));
+        }
+    }
+    @PatchMapping("/{photoId}/update-story")
+    public ResponseEntity<?> updateStory(
+            @PathVariable Long photoId,
+            @RequestBody Map<String, String> request) {
+        String story = request.get("story");
+        boolean updated = openAiService.updateAIStory(photoId, story);
+
+        if (updated) {
+            return ResponseEntity.ok(Map.of("message", "AI 스토리가 성공적으로 업데이트되었습니다."));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "해당 사진 ID를 찾을 수 없습니다."));
         }
     }
 }

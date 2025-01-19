@@ -4,6 +4,7 @@ import com.dailyrecord.backend.dto.LoginRequest;
 import com.dailyrecord.backend.model.Members;
 import com.dailyrecord.backend.service.MemberService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -38,28 +39,6 @@ public class MemberController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
-        }
-
-        // 사용자의 이메일을 통해 Member 정보를 가져옵니다.
-        Members member = memberService.findByEmail(userDetails.getUsername());
-
-        if (member == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-        }
-
-        // 필요한 사용자 정보만 반환합니다.
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", member.getId());
-        response.put("username", member.getUsername());
-        response.put("email", member.getEmail());
-        return ResponseEntity.ok(response);
-    }
-
-
     @GetMapping("/email/{email}")
     public ResponseEntity<Members> getMemberByEmail(@PathVariable String email) {
         return memberService.findMemberByEmail(email)
@@ -69,25 +48,44 @@ public class MemberController {
 
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
+        // 유저 인증 및 JWT 토큰 생성
         String token = memberService.login(loginRequest.getEmail(), loginRequest.getPassword());
 
         if (token != null) {
             // HttpOnly 쿠키 생성
             ResponseCookie cookie = ResponseCookie.from("authToken", token)
-                    .httpOnly(true) // JavaScript에서 접근 불가능
-                    .secure(true) // HTTPS에서만 전송 (개발 환경에서는 false로 설정 가능)
-                    .path("/") // 쿠키 유효 경로
-                    .maxAge(7 * 24 * 60 * 60) // 쿠키 만료 시간: 7일
-                    .sameSite("Strict") // Cross-Site 요청 제한
+                    .httpOnly(true) // JavaScript에서 접근 불가
+                    .secure(false) // HTTPS에서만 전송 (개발 환경에서는 false로 설정)
+                    .path("/") // 모든 경로에서 유효
+                    .maxAge(7 * 24 * 60 * 60) // 쿠키 만료 시간 (7일)
+                    .sameSite("Lax") // Cross-Site 요청 허용
                     .build();
 
-            // 쿠키를 응답 헤더에 추가
             return ResponseEntity.ok()
-                    .header("Set-Cookie", cookie.toString())
-                    .body("Login successful");
+                    .header(HttpHeaders.SET_COOKIE, cookie.toString()) // 쿠키를 응답 헤더에 추가
+                    .body("로그인 성공");
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        }
+
+        Members member = memberService.findByEmail(userDetails.getUsername());
+
+        if (member == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", member.getId());
+        response.put("username", member.getUsername());
+        response.put("email", member.getEmail());
+        return ResponseEntity.ok(response);
     }
 
 

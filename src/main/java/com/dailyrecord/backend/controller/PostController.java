@@ -1,11 +1,16 @@
 package com.dailyrecord.backend.controller;
 
+import com.dailyrecord.backend.dto.StatusUpdateRequest;
 import com.dailyrecord.backend.model.Posts;
 import com.dailyrecord.backend.service.PostService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/posts")
@@ -45,9 +50,26 @@ public class PostController {
     }
 
     // PATCH /posts/{id}/visibility: 게시글 공개 여부 수정
-    @PatchMapping("/{id}/visibility")
-    public ResponseEntity<Posts> updatePostVisibility(@PathVariable Long id, @RequestBody String status) {
-        return ResponseEntity.ok(postService.updatePostVisibility(id, status));
+    @PatchMapping("/{postId}/visibility")
+    public ResponseEntity<Map<String, String>> updatePostVisibility(
+            @PathVariable Long postId,
+            @RequestBody Map<String, String> requestBody) {
+        String status = requestBody.get("status");
+        if (status == null || status.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Status is required"));
+        }
+
+        // 서비스 계층 호출
+        try {
+            boolean updated = postService.updatePostStatus(postId, status);
+            if (updated) {
+                return ResponseEntity.ok(Map.of("message", "게시글 상태가 성공적으로 업데이트되었습니다."));
+            } else {
+                return ResponseEntity.status(404).body(Map.of("error", "게시글을 찾을 수 없습니다."));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "상태 업데이트 중 오류 발생: " + e.getMessage()));
+        }
     }
 
     // GET /public/posts: 공개 게시글 목록 조회
